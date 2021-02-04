@@ -470,12 +470,14 @@ call OrderService
 
 <br>
 
-#### ***컴포넌트 스캔과 의존관계 자동 주입***
+## 컴포넌트 스캔과 의존관계 자동 주입
 
 - 스프링은 설정 정보가 없어도 자동으로 스프링 빈을 등록하는 **컴포넌트 스캔**이라는 기능을 제공한다.
 - 또한 의존관계도 자동으로 주입하는 `@Autowired` 라는 기능도 제공한다.
 
-**컴포넌트 스캔의 사용**
+<br>
+
+#### ***컴포넌트 스캔의 사용***
 
 - 컴포넌트 스캔을 사용하려면 먼저 `@ComponentScan`을 설정 정보에 붙여주면 된다.
 
@@ -535,7 +537,7 @@ public class MemberServiceImpl implements MemberService {
 
 <br>
 
-**탐색 위치와 기본 스캔 대상**
+#### ***탐색 위치와 기본 스캔 대상***
 
 - 필요한 위치부터 탐색하도록 시작 위치를 지정할 수 있다.
 
@@ -576,6 +578,370 @@ public class MemberServiceImpl implements MemberService {
 
 <br>
 
+#### ***중복 등록과 충돌***
+
+1. **자동 빈 등록과 자동 빈 등록의 충돌**
+   - 컴포넌트 스캔에 의해 자동으로 스프링 빈이 등록되는데, 그 이름이 같은 경우 스프링은 오류를 발생시킨다.
+     - `ConflictingBeanDefinitionException` 예외 발생
+2. **수동 빈 등록과 자동 빈 등록의 충돌**
+   - 이 경우 수동 빈 등록이 우선권을 가진다. ( 수동 빈이 자동 빈을 오버라이딩 한다.)
+   - 하지만 최신 **스프링 부트**에서는 기본 값으로 오류가 나도록 설정 되어 있다.
+     - `resources/application.properties`에 값을 입력하여 오버라이딩 되도록 설정할 수 있다.
+
+<br>
+
+#### ***의존관계 주입 방법***
+
+**생성자 주입**
+
+- 생성자를 통해서 의존 관계를 주입하는 방법
+- 특징 
+  - 생성자 호출시점에 딱 한 번만 호출되는 것이 보장된다.
+  - 불변, 필수 의존관계에 사용된다.
+  - 생성자가 한 개만 있으면 `@Autowired`를 생략해도 된다.
+
+```java
+@Component
+public class OrderServiceImpl implements OrderService {
+    private final MemberRepository memberRepository;
+    private final DiscountPolicy = discountPolicy;
+    
+    @Autowired
+    public OrderServiceImpl(MemberRepository memberRepository, Discounpolicy discountPolicy) {
+        this.memberRepository = memberRepository;
+        this.discountPolicy = discountPolicy;
+    }
+}
+```
+
+<br>
+
+**수정자 주입(Setter 주입)**
+
+- `setter`라는 수정자 메서드를 이용하여 의존관계를 주입하는 방법
+- 특징
+  - 선택, 변경 가능성이 있는 의존관계에 사용
+
+```java
+@Component
+public class OrderServiceImpl implements OrderService {
+    
+    private MemberRepository memberRepository;
+    private DiscountPolicy discountPolicy;
+    
+    @Autowired
+    public void setMemberRepository(MemberRepository memberRepository) {
+        this.memberRepository = memberRepository;
+    }
+    
+    @Autowired
+    public void setDiscountPolicy(DiscountPolicy discountPolicy) {
+        this.discountPolicy = discountPolicy;
+    }
+}
+```
+
+- `@Autowired`의 기본 동작은 주입할 대상이 없으면 오류가 발생한다. 주입할 대상이 없어도 동작하게 하려면 `@Autowired(required = false)` 로 지정하면 된다.
+
+<br>
+
+**필드 주입**
+
+- 필드에 바로 주입하는 방법
+- 특징
+  - 외부에서 변경이 불가능해서 테스트하기 힘들다.
+  - 사용하지말자
+    - 에플리케이션의 실제 코드와 관계 없는 테스트 코드
+    - 스프링 설정을 목적으로 하는 `@Configuration` 같은 곳에서만 사용된다.
+
+<br>
+
+**일반 메서드 주입**
+
+- 일반 메서드를 통해서 주입
+- 특징
+  - 한 번에 여러 필드를 주입 받을 수 있다.
+
+```java
+@Component
+public class OrderServiceImpl implements OrderService {
+    
+    private MemberRepository memberRepository;
+    private DiscountPolicy discountPolicy;
+    
+    @Autowired
+    public void init(MemberRepository memberRepository, DiscountPolicy discountPolicy) {
+        this.memberRepository = memberRepository;
+        this.discountPolicy = discountPolicy;
+    }
+```
+
+<br>
+
+#### ***옵션***
+
+- 주입할 스프링 빈이 없을 때 자동 주입 대상을 옵션으로 처리할 수 있다.
+  - `@Autowired(required = false)` : 자동 주입할 대상이 없으면 메서드가 호출되지 않는다.
+  - `@Nullable` : 자동 주입할 대상이 없으면 `null`이 입력된다.
+  - `Optional<>` : 자동 주입할 대상이 없으면 `Optional.empty`가 입력된다.
+
+```java
+public class AutowiredTest {
+
+    @Test
+    void AutowiredOption() {
+        ApplicationContext ac = new AnnotationConfigApplicationContext(TestBean.class);
+
+    }
+
+    static class TestBean {
+
+        @Autowired(required=false)  // 메서드 자체가 호출 안됨
+        public void setNoBean1(Member noBean1) {
+            System.out.println("noBean1 = " + noBean1);
+        }
+
+        @Autowired  // 메서드 호출은 되지만 값이 없으면 null 값이 반환됨
+        public void setNoBean2(@Nullable Member noBean1) {
+            System.out.println("noBean2 = " + noBean1);
+        }
+
+        @Autowired  // 값이 없으면 Optional.empty가 반환됨
+        public void setNoBean3(Optional<Member> noBean3) {
+            System.out.println("noBean3 = " + noBean3);
+        }
+    }
+```
+
+<br>
+
+#### ***롬복(lombok)***
+
+```java
+@Component
+public class OrderServiceImpl implements OrderService{
+
+    private final MemberRepository memberRepository;
+    private final DiscountPolicy discountPolicy;
+
+    @Autowired	// 생성자가 1개이므로 생략 가능
+    public OrderServiceImpl(MemberRepository memberRepository, DiscountPolicy discountPolicy) {
+        this.memberRepository = memberRepository;
+        this.discountPolicy = discountPolicy;
+    }
+```
+
+위 코드를 롬복(lombok)을 이용하면 더 간결하게 만들 수 있다.
+
+```java
+@Component
+@RequiredArgsConstructor
+public class OrderServiceImpl implements OrderService{
+    
+    private final MemberRepository memberRepository;
+    private final DiscountPolicy discountPolicy;    
+}
+```
+
+롬복 라이브러리가 제공하는 `@RequiredArgsConstructor` 기능을 사용하면 `final`이 붙은 필드를 모아서 생성자를 자동으로 만들어준다.
+
+참고 : `@Getter`, `@Setter` 기능을 사용하면 게터, 세터도 자동으로 만들어준다.
+
+<br>
+
+#### ***조회 빈이 2개 이상일 때***
+
+- `@Autowired`는 타입으로 조회하는데, 선택된 빈이 2개 이상일 때 문제가 발생한다.
+- 다음과 같은 방법으로 해결할 수 있다.
+  - `Autowired 필드 명`
+  - `@Qualifier`
+  - `@Primary`
+
+<br>
+
+1. **Autowired 필드 명**
+
+   `@Autowired`는 타입 매칭을 시도하고, 이때 여러 빈이 있으면 **필드 이름, 파라미터 이름**으로 빈 이름을 추가 매칭한다.
+
+   ```java
+   // 기존 코드
+   @Autowired
+   private DiscountPolicy discountPolicy;
+   
+   // 필드 명을 빈 이름으로 변경
+   @Autowired
+   private DiscountPolicy fixDiscountPolicy;
+   ```
+
+2. **@Qualifier**
+
+   `@Qualifier`는 추가 구분자를 붙여주는 방법이다. 주입시 추가적인 방법을 제공하는 것이지 빈 이름을 변경하는 것은 아니다.
+
+   ```java
+   // 빈 등록시 @Qualifier을 붙여준다.
+   
+   // RateDiscountPolicy.java
+   @Component
+   @Qualifier("mainDiscountPolicy")
+   public class RateDiscountPolicy implements DiscountPolicy {  }
+   
+   // FixDiscountPolicy.java
+   @Component
+   @Qualifier("fixDiscountPolicy")
+   public class FixDiscountPolicy implements DiscountPolicy {  }
+   
+   // 생성자 자동 주입
+   @Autowired
+   public OrderServiceImpl(MemberRepository memberRepository, @Qualifier("mainDiscountPolicy") DiscountPolicy discountPolicy) {
+       this.memberRepository = memberRepository;
+       this.discountPolicy = discountPolicy;
+   }
+   ```
+
+   `@Qualifier`는 다음과 같은 순서로 매칭된다.
+
+   1. `@Qualifier` 끼리 매칭
+   2. 빈 이름 매칭
+   3. `NoSuchBeanDefinitionException` 예외 발상
+
+   
+
+3. **@Primary 사용**
+
+   `@Primary`는 우선순위를 정하는 방법이다. 선택된 여러 빈 중 `@Primary`가 설정된 빈이 우선권을 가진다.
+
+```java
+@Component
+@Primary	// DiscountPolicy 타입으로 빈 등록시 우선으로 선택됨
+public class RateDiscountPolicy implements DiscountPolicy {}
+
+@Componenet
+public class FixDiscountPolicy implements DiscountPolicy {}
+```
+
+<br>
+
+#### ***조회한 빈이 모두 필요할 때*** 
+
+예를 들어 할인 서비스를 제공하는데, 클라이언트가 할인의 종류(Rate, Fix)를 선택할 수 있다고 가정해보자. 스프링을 사용하여 다음과 같이 구현할 수 있다.
+
+```java
+public class AllBeanTest {
+
+    @Test
+    void findAllBean() {
+        ApplicationContext ac =
+                new AnnotationConfigApplicationContext(AutoAppConfig.class, DiscountService.class);
+
+        DiscountService discountService = ac.getBean(DiscountService.class);
+        Member member = new Member(1L, "userA", Grade.VIP);
+        int discountPrice = discountService.discount(member, 10000, "fixDiscountPolicy");
+
+        assertThat(discountService).isInstanceOf(DiscountService.class);
+        assertThat(discountPrice).isEqualTo(1000);
+
+        int rateDiscountPrice = discountService.discount(member, 20000, "rateDiscountPolicy");
+        assertThat(discountPrice).isEqualTo(1000);
+    }
+
+    static class DiscountService {
+        // 키는 String, 값은 DiscountPolicy 타입으로 맵을 생성
+        private final Map<String, DiscountPolicy> policyMap;
+        
+        // 생성자
+        @Autowired
+        public DiscountService(Map<String, DiscountPolicy> policyMap) {
+            this.policyMap = policyMap;
+        }
+		
+        public int discount(Member member, int price, String discountCode) {
+            DiscountPolicy discountPolicy = policyMap.get(discountCode);
+            return discountPolicy.discount(member, price);
+        }
+    }
+}
+```
+
+- `DiscountService`는 `Map` 자료구조로 모든 `DiscountPolicy`를 주입받고, 이 때 `fixDiscountPolicy`와 `rateDiscountPolicy`가 주입된다.
+- `discount()` 메서드는 `discountCode`로 "fixDiscountPolicy"가 넘어오면 `fixDiscountPolicy` 스프링 빈을 찾아서 실행하고 "rateDiscountPolicy"가 넘어오면 `rateDiscountPolicy` 스프링 빈을 찾아서 실행한다.
+
+```java
+// policyMap은 다음과 같이 키 값으로는 String 타입의 "fixDiscountPolicy", "rateDiscountPolicy"가 있고 각각의 value는 fisDiscountPolicy 인스턴스, rateDiscountPolicy 인스턴스가 들어있다.
+
+policyMap = {fixDiscountPolicy=hello.core.discount.FixDiscountPolicy@2f48b3d2, rateDiscountPolicy=hello.core.discount.RateDiscountPolicy@34f7234e}
+```
+
+<br>
+
+## 빈 생명주기 콜백
+
+- 스프링 빈은 다음과 같은 라이프 사이클을 가진다.
+  - **객체 생성 -> 의존관계 주입**
+
+- 초기화 작업은 의존관계 주입이 모두 끝나고 난 다음에 호출해야 한다. 그렇다면 개발자가 의존관계 주입이 끝나는 시점을 알아야할 필요가 있다.
+- 스프링은 의존관계 주입이 완료되면 스프링 빈에게 콜백 메서드를 통해서 초기화 시점을 알려주는 다양한 기능을 제공한다.
+- 스프링은 스프링 컨테이너가 종료되기 직전에 소멸 콜백을 준다.
+- 스프링 빈의 이벤트 라이프 사이클
+  - **스프링 컨테이너 생성 -> 스프링 빈 생성 -> 의존관계 주입 -> 초기화 콜백 -> 사용 -> 소멸전 콜백 -> 스프링 종료**
+
+
+
+> <참고> 객체의 생성과 초기화를 분리하자.
+>
+> **생성자**는 필수 정보(파라미터)를 받고 메모리를 할당해서 객체를 생성하는 책임을 가진다. 반면에 **초기화**는 이렇게 생성된 값들을 활용해서 외부 커넥션을 연결하는 등 무거운 동작을 수행한다. 따라서 생성자 안에서 무거운 초기화 작업을 함께 하는 것 보다는 객체를 생성하는 부분과 초기화 하는 부분을 명확하게 나누는 것이 유지보수 관점에서 좋다.
+
+- 스프링에서 지원하는 빈 생명 주기 콜백
+  - 인터페이스
+  - 설정 정보에 초기화 메서드, 종료 메서드 지정
+  - `@PostConstruct, @PreDestory` 
+
+<br>
+
+#### ***인터페이스 InitializingBean, DisposableBean***
+
+- 클래스를 `InitializingBean`, `DisposableBean` 인터페이스에 상속받아 초기화 하는 부분은 `InitializingBean` 메소드에, 소멸메소드는 `destroy` 메소드에 입력한다.
+
+<br>
+
+#### ***빈 등록 초기화, 소멸 메서드***
+
+- 설정 정보에 `@Bean(initMethod = "초기화 메소드 이름", destroyMethod = "소멸 메소드 이름")`를 입력하여 초기화, 소멸 메서드를 지정할 수 있다.
+
+<br>
+
+#### ***@PostConstruct, @PreDestroy***
+
+- 초기화 메소드 위에 `@PostConstruct` 애노테이션을, 소멸 메소드 위에 `@PreDestroy` 애노테이션을 입력하여 초기화, 소멸 메소드를 지정할 수 있다.
+
+#### <br>
+
+#### ***정리***
+
+- `@PostConstruct`, `@PreDestroy` 애노태이션을 사용하되, 코드를 고칠 수 없는 외부 라이브러리를 초기화, 종료해야 하면 `@Bean`의 `initMethod`, `destroyMethod`를 사용하자
+
+<br>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -589,6 +955,25 @@ public class MemberServiceImpl implements MemberService {
 
 
 <br>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
